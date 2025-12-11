@@ -30,8 +30,9 @@ class Room(BaseModel):
 
     def save(self, *args, **kwargs):
         if self.sequence is None:
-            last_room = Room.objects.order_by('-sequence').first()
-            self.sequence = (last_room.sequence + 1) if last_room else 1
+            last_room = Room.objects.order_by('-sequence').first() or 0
+            print(last_room)
+            self.sequence = (last_room.sequence or 0) + 1 if last_room else 1
 
         super().save(*args, **kwargs)
 

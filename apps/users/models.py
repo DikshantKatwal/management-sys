@@ -33,8 +33,10 @@ class CustomAccountManager(BaseUserManager):
         user:User = self.model(email=email, first_name=first_name, last_name=last_name, **other_fields)
         if password:
             user.set_password(password)
+            user.is_active=True
         else:
             user.set_unusable_password()
+            user.is_active=False
         user.save()
         return user
 
@@ -45,6 +47,7 @@ class User(BaseModel, AbstractBaseUser, PermissionsMixin):
         CUSTOMER = "customer", "Customer"
         EMPLOYEE = "employee", "Employee"
     email = models.EmailField(_("email address"), unique=True)
+    avatar = models.ImageField(upload_to="users/avatar/", null=True, blank=True)
     username = models.CharField(max_length=255, null=True, blank=True)
     first_name = models.CharField(max_length=255, null=True, blank=True)
     last_name = models.CharField(max_length=255, null=True, blank=True)

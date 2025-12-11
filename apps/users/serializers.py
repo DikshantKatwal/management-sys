@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from rest_framework import serializers
 from django.contrib.auth import authenticate
+from apps.customers.serializers import CustomerSerializer
+from apps.employees.serializers import EmployeeSerializer
 from apps.users.models import User
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -9,34 +11,37 @@ from apps.employees.models import Employee
 from apps.users.models import User
 
 class EmployeeRegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
-    role = serializers.CharField(required=False)
-    department = serializers.CharField(required=False, allow_blank=True)
-    position = serializers.CharField(required=False, allow_blank=True)
-    hire_date = serializers.DateField(required=False)
+    password = serializers.CharField(write_only=True,required=False)
+    # role = serializers.CharField(required=False)
+    # department = serializers.CharField(required=False, allow_blank=True)
+    # position = serializers.CharField(required=False, allow_blank=True)
+    # hire_date = serializers.DateField(required=False)
 
     class Meta:
         model = User
-        fields = ["email", "first_name", "last_name", "password", "role","department","position","hire_date"]
+        fields = ["email", "first_name", "last_name", "avatar","password"]
 
     def create(self, validated_data):
-        role= validated_data.pop("role", Employee.EmployeeRoles.EMPLOYEE)
-        department = validated_data.pop("department", None)
-        position = validated_data.pop("position", None)
-        hire_date = validated_data.pop("hire_date", None)
+        # role= validated_data.pop("role", Employee.EmployeeRoles.EMPLOYEE)
+        # department = validated_data.pop("department", None)
+        # position = validated_data.pop("position", None)
+        # hire_date = validated_data.pop("hire_date", None)
+        password = validated_data.pop("password", None)
         user = User.objects.create_user(
             email=validated_data["email"],
             first_name=validated_data["first_name"],
             last_name=validated_data["last_name"],
-            password=validated_data["password"],
+            password=password,
+            avatar=validated_data["avatar"],
             user_type=User.UserTypes.EMPLOYEE
         )
-        employee:Employee = user.employee_profile
-        employee.role = role
-        employee.department = department
-        employee.position = position
-        employee.hire_date = hire_date
-        employee.save()
+        # Employee instance after save from signals.py
+        # employee:Employee = user.employee_profile
+        # employee.role = role
+        # employee.department = department
+        # employee.position = position
+        # employee.hire_date = hire_date
+        # employee.save()
 
         return user
     
@@ -82,6 +87,12 @@ class CustomerRegisterSerializer(serializers.ModelSerializer):
         return user
     
 
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["first_name", "last_name","username","avatar","full_name"]
+
+
 
 
 class LoginSerializer(serializers.Serializer):
@@ -112,3 +123,33 @@ class LoginSerializer(serializers.Serializer):
                 "role": user.user_type,
             }
         }
+    
+
+class UnifiedUserSerializer(serializers.ModelSerializer):
+    employee = serializers.SerializerMethodField()
+    customer = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "avatar",
+            "email",
+            "full_name",
+            "first_name",
+            "last_name",
+            "username",
+            "user_type",
+            "employee",
+            "customer",
+        ]
+
+    def get_employee(self, obj):
+        if hasattr(obj, "employee_profile"):
+            return EmployeeSerializer(obj.employee_profile).data
+        return None
+
+    def get_customer(self, obj):
+        if hasattr(obj, "customer_profile"):
+            return CustomerSerializer(obj.customer_profile).data
+        return None

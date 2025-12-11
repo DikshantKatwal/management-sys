@@ -17,9 +17,14 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path, include
-
+from django.contrib.staticfiles.urls import static
+from .settings import dev
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api-auth/", include("rest_framework.urls")),
     path("api/v1/", include("apps.api.v1_urls")),
 ]
+
+if dev.DEBUG:
+    urlpatterns += static(dev.STATIC_URL, document_root=dev.STATIC_URL)
+    urlpatterns += static(dev.MEDIA_URL, document_root=dev.MEDIA_ROOT)
