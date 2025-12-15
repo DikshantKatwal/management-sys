@@ -25,6 +25,58 @@ class StayViewSet(viewsets.ModelViewSet):
     queryset = Stay.objects.select_related("reservation", "room")
     serializer_class = StaySerializer
 
+
+    @action(detail=True, methods=["post"])
+    def checkout(self, request, pk=None):
+        stay = self.get_object()
+
+        if stay.status != Stay.Status.IN_HOUSE:
+            raise ValidationError("Stay is not in-house")
+
+        folio = stay.folio
+
+        # Calculate balance
+        charges_total = folio.charges.aggregate(
+            total=Sum(
+                (F("quantity") * F("unit_price"))
+                + F("tax_amount")
+                - F("discount_amount")
+            )
+        )["total"] or 0
+
+        payments_total = folio.payments.aggregate(
+            total=Sum("amount")
+        )["total"] or 0
+
+        adjustments_total = folio.adjustments.aggregate(
+            total=Sum("amount")
+        )["total"] or 0
+
+        balance = charges_total + adjustments_total - payments_total
+
+        if balance != 0:
+            raise ValidationError(
+                f"Outstanding balance: {balance}"
+            )
+
+        with transaction.atomic():
+            # Update stay
+            stay.status = Stay.Status.CHECKED_OUT
+            stay.checked_out_at = timezone.now()
+            stay.save(update_fields=["status", "checked_out_at"])
+
+            # Update reservation
+            reservation = stay.reservation
+            reservation.status = Reservation.Status.CHECKED_OUT
+            reservation.save(update_fields=["status"])
+
+            # Close folio
+            folio.is_closed = True
+            folio.save(update_fields=["is_closed"])
+
+        return Response({"status": "checked out successfully"})
+    
+
     @action(detail=True, methods=["post"])
     def extend(self, request, pk=None):
         stay = self.get_object()
