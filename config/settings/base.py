@@ -26,12 +26,12 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "corsheaders",
+    'django_filters',
     "apps.users",
     "apps.employees",
-    "apps.customers",
+    "apps.guests",
     "apps.rooms",
-    "apps.check_ins",
-    'django_filters',
+    # "apps.check_ins",
 ]
 
 REST_FRAMEWORK = {
@@ -118,3 +118,4 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "users.User"
 
 print("⚠️ Using BASE settings")
+

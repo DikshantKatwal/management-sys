@@ -1,12 +1,12 @@
 from rest_framework import serializers
 from rest_framework import serializers
 from django.contrib.auth import authenticate
-from apps.customers.serializers import CustomerSerializer
+from apps.guests.serializers import GuestSerializer
 from apps.employees.serializers import EmployeeSerializer
 from apps.users.models import User
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.customers.models import Customer
+from apps.guests.models import Guest
 from apps.employees.models import Employee
 from apps.users.models import User
 
@@ -46,7 +46,7 @@ class EmployeeRegisterSerializer(serializers.ModelSerializer):
         return user
     
 
-class CustomerRegisterSerializer(serializers.ModelSerializer):
+class GuestRegisterSerializer(serializers.ModelSerializer):
     email = serializers.EmailField()
     first_name = serializers.CharField()
     last_name = serializers.CharField()
@@ -62,7 +62,7 @@ class CustomerRegisterSerializer(serializers.ModelSerializer):
         fields = ["email", "first_name", "last_name", "password","phone","address","dob","loyalty_points"]
 
     def create(self, validated_data):
-        customer_data = {
+        guest_data = {
             'phone': validated_data.pop("phone", None),
             'address': validated_data.pop("address", None),
             'dob': validated_data.pop("dob", None),
@@ -78,10 +78,10 @@ class CustomerRegisterSerializer(serializers.ModelSerializer):
             user_type=User.UserTypes.CUSTOMER
         )
 
-        # 2️⃣ Create Customer with all additional fields
-        Customer.objects.create(
+        # 2️⃣ Create Guest with all additional fields
+        Guest.objects.create(
             user=user,
-            **customer_data
+            **guest_data
         )
 
         return user
@@ -90,7 +90,7 @@ class CustomerRegisterSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["first_name", "last_name","username","avatar","full_name"]
+        fields = ["first_name", "last_name","username","avatar","email","full_name"]
 
 
 
@@ -127,7 +127,7 @@ class LoginSerializer(serializers.Serializer):
 
 class UnifiedUserSerializer(serializers.ModelSerializer):
     employee = serializers.SerializerMethodField()
-    customer = serializers.SerializerMethodField()
+    guest = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -141,7 +141,7 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
             "username",
             "user_type",
             "employee",
-            "customer",
+            "guest",
         ]
 
     def get_employee(self, obj):
@@ -149,7 +149,7 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
             return EmployeeSerializer(obj.employee_profile).data
         return None
 
-    def get_customer(self, obj):
-        if hasattr(obj, "customer_profile"):
-            return CustomerSerializer(obj.customer_profile).data
+    def get_guest(self, obj):
+        if hasattr(obj, "guest_profile"):
+            return GuestSerializer(obj.guest_profile).data
         return None

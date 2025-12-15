@@ -1,8 +1,8 @@
 from rest_framework.routers import DefaultRouter
 
-from apps.customers.views import CustomerViewSet
+from apps.guests.views import GuestViewSet
 
 router = DefaultRouter()
-router.register(r'', CustomerViewSet)
+router.register(r'', GuestViewSet)
 
 urlpatterns = router.urls

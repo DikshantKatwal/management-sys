@@ -44,7 +44,7 @@ class CustomAccountManager(BaseUserManager):
 class User(BaseModel, AbstractBaseUser, PermissionsMixin):
     class UserTypes(models.TextChoices):
         ADMIN = "admin", "Admin"
-        CUSTOMER = "customer", "Customer"
+        GUEST = "guest", "Guest"
         EMPLOYEE = "employee", "Employee"
     email = models.EmailField(_("email address"), unique=True)
     avatar = models.ImageField(upload_to="users/avatar/", null=True, blank=True)
@@ -58,7 +58,7 @@ class User(BaseModel, AbstractBaseUser, PermissionsMixin):
     user_type = models.CharField(
         max_length=20,
         choices=UserTypes.choices,
-        default=UserTypes.CUSTOMER
+        default=UserTypes.GUEST
     )
     objects = CustomAccountManager()
     last_login_ip = models.GenericIPAddressField(null=True, blank=True)
@@ -70,5 +70,8 @@ class User(BaseModel, AbstractBaseUser, PermissionsMixin):
     def full_name(self):
         return f"{self.first_name} {self.last_name}".strip()
 
+    def __str__(self):
+        return f"{self.full_name}"
+    
     class Meta:
         db_table = "aauth_user"

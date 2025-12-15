@@ -47,4 +47,34 @@ LOGGING = {
         "level": "DEBUG",
     },
 }
+
+# LOGGING = {
+#     "version": 1,
+#     "disable_existing_loggers": False,
+
+#     "formatters": {
+#         "json": {
+#             "format": '{"message":"%(message)s","level":"%(levelname)s","logger":"%(name)s"}'
+#         },
+#     },
+
+#     "handlers": {
+#         "logtail": {
+#             "class": "logtail.LogtailHandler",
+#             "source_token": "GLTx4hFKQG4Ye4WPoyuKqqfq",
+#             "host": "https://s1626776.eu-nbg-2.betterstackdata.com",
+#             "formatter": "json",
+#             "level": "INFO",
+#         },
+#     },
+
+#     "loggers": {
+#         "": {
+#             "handlers": ["logtail"],
+#             "level": "INFO",
+#             "propagate": True,
+#         },
+#     },
+# }
+
 print("⚠️ Using DEV settings")

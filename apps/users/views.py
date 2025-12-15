@@ -1,13 +1,14 @@
-from rest_framework import status,generics
+from rest_framework import status,generics,viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from apps.common.permissions import IsAdminUser
-from apps.customers.serializers import CustomerSerializer
+from apps.guests.serializers import GuestSerializer
+from apps.employees.models import Employee
 from apps.employees.serializers import EmployeeSerializer
 from apps.users.models import User
 from .serializers import (
-    CustomerRegisterSerializer,
+    GuestRegisterSerializer,
     EmployeeRegisterSerializer,
     LoginSerializer,
     UnifiedUserSerializer,
@@ -17,25 +18,32 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from django.db import transaction
 
-class CustomerRegisterView(APIView):
+
+import logging
+logger = logging.getLogger(__name__)
+
+class GuestRegisterView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        serializer = CustomerRegisterSerializer(data=request.data)
+        serializer = GuestRegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         return Response(
-            {"message": "Customer registered successfully", "id": str(user.id)},
+            {"message": "Guest registered successfully", "id": str(user.id)},
             status=status.HTTP_201_CREATED
         )
 
 
-class EmployeeRegisterView(generics.GenericAPIView):
+class EmployeeRegisterView(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsAdminUser]
     serializer_class = EmployeeSerializer
+    queryset = User.objects.none()
+    http_method_names =["put","post"]
+    lookup_field="id"
 
     @transaction.atomic
-    def post(self, request):
+    def create(self, request):
         data = request.data
         serializer = EmployeeRegisterSerializer(data=data)
         serializer.is_valid(raise_exception=True)
@@ -49,9 +57,35 @@ class EmployeeRegisterView(generics.GenericAPIView):
             employee_serializer.data,
             status=status.HTTP_201_CREATED
         )
-
-
-
+    
+    @transaction.atomic
+    def update(self, request, *args, **kwargs):
+        try:
+            data = request.data
+            if not "id" in data:
+                return Response("ID is required", status=status.HTTP_400_BAD_REQUEST)
+            id = data.get("id")
+            user = User.objects.get(id=id)
+            if request.FILES.get('avatar'):
+                data['avatar'] = request.FILES.get('avatar')
+                user.avatar.delete(save=False)
+          
+            if user:
+                serializer = EmployeeRegisterSerializer(user, data=data)
+                serializer.is_valid(raise_exception=True)
+                user:User = serializer.save()
+            if hasattr(user, "employee_profile"):
+                employee:Employee = user.employee_profile
+                employee_serializer = self.get_serializer(instance=employee, data=data)
+                employee_serializer.is_valid(raise_exception=True)
+                employee_serializer.save()
+            return Response(
+                employee_serializer.data,
+                status=status.HTTP_201_CREATED
+            )
+        except Exception as e:
+            print(e)
+            return Response(str(e), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class CookieTokenRefreshView(APIView):
@@ -95,6 +129,7 @@ class CookieTokenRefreshView(APIView):
 
         return response
     
+
 class LoginView(APIView):
     permission_classes=[AllowAny]
 
@@ -106,6 +141,14 @@ class LoginView(APIView):
         user = data.pop("user")
         access = data.pop("access")
         response = Response(user, status=status.HTTP_200_OK)
+        logger.info('User Logged In.', extra={
+            'user_id': user.get("id"),
+            'first_name':user.get("first_name"),
+        })
+        # logger.info('Log message with structured logging.', extra={
+        #     'item': "Orange Soda",
+        #     'price': 100.00
+        # })
         response.set_cookie(
             "access",
             access,
@@ -152,27 +195,29 @@ class UserAPIView(generics.GenericAPIView):
 
     @transaction.atomic
     def put(self, request):
-        user:User = request.user
-        data = request.data.copy()
-        if request.FILES.get('avatar'):
-            data['avatar'] = request.FILES.get('avatar')
-            user.avatar.delete(save=False)
-        user_serializer = UserSerializer(user, data=data, partial=True)
-        user_serializer.is_valid(raise_exception=True)
-        user_serializer.save()
+        try:
+            user:User = request.user
+            data = request.data
+            if request.FILES.get('avatar'):
+                data['avatar'] = request.FILES.get('avatar')
+                user.avatar.delete(save=False)
+            user_serializer = UserSerializer(user, data=data, partial=True)
+            user_serializer.is_valid(raise_exception=True)
+            user_serializer.save()
+            if hasattr(user, "employee_profile"):
+                employee = user.employee_profile
+                print("employee",employee)
+                emp_serializer = EmployeeSerializer(employee, data=data, partial=True)
+                emp_serializer.is_valid(raise_exception=True)
+                emp_serializer.save()
+            if hasattr(user, "guest_profile"):
+                guest = user.guest_profile
+                cus_serializer = GuestSerializer(guest, data=data, partial=True)
+                cus_serializer.is_valid(raise_exception=True)
+                cus_serializer.save()
 
-        # Update employee/customer profile
-        if hasattr(user, "employee_profile"):
-            employee = user.employee_profile
-            emp_serializer = EmployeeSerializer(employee, data=data, partial=True)
-            emp_serializer.is_valid(raise_exception=True)
-            emp_serializer.save()
-
-        if hasattr(user, "customer_profile"):
-            customer = user.customer_profile
-            cus_serializer = CustomerSerializer(customer, data=data, partial=True)
-            cus_serializer.is_valid(raise_exception=True)
-            cus_serializer.save()
-
-        serializer = UnifiedUserSerializer(user)
-        return Response(serializer.data)
+            serializer = UnifiedUserSerializer(user)
+            return Response(serializer.data)
+        except Exception as e:
+            print(e)
+            return Response(str(e), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
