@@ -31,7 +31,7 @@ INSTALLED_APPS = [
     "apps.employees",
     "apps.guests",
     "apps.rooms",
-    # "apps.check_ins",
+    "apps.stays",
 ]
 
 REST_FRAMEWORK = {
