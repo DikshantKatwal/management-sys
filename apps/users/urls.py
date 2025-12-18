@@ -4,10 +4,10 @@ from rest_framework.routers import DefaultRouter
 from . import views
 
 router = DefaultRouter()
-router.register(r'register/employees', views.EmployeeRegisterView)
-
+router.register(r'register/employees', views.EmployeeRegisterView, basename='employee-register')
+router.register(r'register/guests', views.GuestRegisterView, basename='guest-register')
 urlpatterns = [
-    path("register/guest/", views.GuestRegisterView.as_view(), name="register-guest"),
+    # path("register/guest/", views.GuestRegisterView.as_view(), name="register-guest"),
     # path("register/employee/", views.EmployeeRegisterView.as_view(), name="register-employee"),
 
     path("login/", views.LoginView.as_view(), name="login"),

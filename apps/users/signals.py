@@ -1,5 +1,6 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from apps.guests.models import Guest
 from apps.users.models import User
 from apps.employees.models import Employee
 from django.utils import timezone
@@ -11,7 +12,9 @@ def create_profile(sender, instance:User, created, **kwargs):
         return
 
     if instance.user_type == User.UserTypes.GUEST:
-        return
+        Guest.objects.get_or_create(
+            user=instance,
+        )
 
     elif instance.user_type == User.UserTypes.EMPLOYEE:
         Employee.objects.get_or_create(

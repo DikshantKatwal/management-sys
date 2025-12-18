@@ -7,4 +7,5 @@ from apps.guests.models import Guest
 class GuestSerializer(serializers.ModelSerializer):
     class Meta:
         model = Guest
-        fields = "__all__"
+        exclude=["restored_at", "deleted_at", "transaction_id","id"
+                 ]

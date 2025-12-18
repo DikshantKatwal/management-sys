@@ -3,13 +3,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from apps.common.permissions import IsAdminUser
+from apps.guests.models import Guest
 from apps.guests.serializers import GuestSerializer
 from apps.employees.models import Employee
 from apps.employees.serializers import EmployeeSerializer
 from apps.users.models import User
 from .serializers import (
     GuestRegisterSerializer,
-    EmployeeRegisterSerializer,
+    UserRegisterSerializer,
     LoginSerializer,
     UnifiedUserSerializer,
     UserSerializer,
@@ -17,22 +18,74 @@ from .serializers import (
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from django.db import transaction
-
+from django.db.models import Q
+from rest_framework.exceptions import ValidationError
 
 import logging
 logger = logging.getLogger(__name__)
 
-class GuestRegisterView(APIView):
-    permission_classes = [AllowAny]
 
-    def post(self, request):
-        serializer = GuestRegisterSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        return Response(
-            {"message": "Guest registered successfully", "id": str(user.id)},
-            status=status.HTTP_201_CREATED
-        )
+class GuestRegisterView(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated, IsAdminUser]
+    serializer_class = GuestSerializer
+    queryset = User.objects.all()
+    http_method_names =["put","post"]
+    lookup_field="id"
+    lookup_url_kwarg ="id"
+
+    @transaction.atomic
+    def create(self, request):
+        try:
+            with transaction.atomic():
+                data = request.data
+                phone = data.get("phone")
+                email = data.get("email")
+                if User.objects.filter(
+                    Q(phone=phone) | Q(email__iexact=email)
+                ).exists():
+                    raise ValidationError({"phone": "This phone already exists"})
+                
+                serializer = UserRegisterSerializer(data=data)
+                serializer.is_valid(raise_exception=True)
+                user:User = serializer.save(user_type=User.UserTypes.GUEST)
+                if hasattr(user, "guest_profile"):
+                    guest = user.guest_profile
+                    guest_serializer = self.get_serializer(guest, data=data)
+                    guest_serializer.is_valid(raise_exception=True)
+                    guest_serializer.save()
+                    return Response(
+                        guest_serializer.data,
+                        status=status.HTTP_201_CREATED
+                    )
+                return Response("guest profile not found", status= status.HTTP_404_NOT_FOUND)
+
+        except Exception as e:
+            print(e)
+            return Response(str(e), status= status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @transaction.atomic
+    def update(self, request, *args, **kwargs):
+        try:
+            data = request.data
+            user = self.get_object()
+            if request.FILES.get('avatar'):
+                data['avatar'] = request.FILES.get('avatar')
+                user.avatar.delete(save=False)
+            if user:
+                serializer = UserRegisterSerializer(user, data=data)
+                serializer.is_valid(raise_exception=True)
+                print(serializer.validated_data)
+                user:User = serializer.save()
+            if hasattr(user, "guest_profile"):
+                guest:Guest = user.guest_profile
+                guest_serializer = self.get_serializer(instance=guest, data=data)
+                guest_serializer.is_valid(raise_exception=True)
+                guest_serializer.save()
+            return Response(guest_serializer.data, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            print(e)
+            return Response(str(e), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 
 class EmployeeRegisterView(viewsets.ModelViewSet):
@@ -45,7 +98,9 @@ class EmployeeRegisterView(viewsets.ModelViewSet):
     @transaction.atomic
     def create(self, request):
         data = request.data
-        serializer = EmployeeRegisterSerializer(data=data)
+        data["user_type"]=User.UserTypes.EMPLOYEE
+
+        serializer = UserRegisterSerializer(data=data)
         serializer.is_valid(raise_exception=True)
         user:User = serializer.save()
         if hasattr(user, "employee_profile"):
@@ -71,7 +126,7 @@ class EmployeeRegisterView(viewsets.ModelViewSet):
                 user.avatar.delete(save=False)
           
             if user:
-                serializer = EmployeeRegisterSerializer(user, data=data)
+                serializer = UserRegisterSerializer(user, data=data)
                 serializer.is_valid(raise_exception=True)
                 user:User = serializer.save()
             if hasattr(user, "employee_profile"):
@@ -132,6 +187,7 @@ class CookieTokenRefreshView(APIView):
 
 class LoginView(APIView):
     permission_classes=[AllowAny]
+    authentication_classes = []
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -206,7 +262,6 @@ class UserAPIView(generics.GenericAPIView):
             user_serializer.save()
             if hasattr(user, "employee_profile"):
                 employee = user.employee_profile
-                print("employee",employee)
                 emp_serializer = EmployeeSerializer(employee, data=data, partial=True)
                 emp_serializer.is_valid(raise_exception=True)
                 emp_serializer.save()

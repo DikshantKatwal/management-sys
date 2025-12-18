@@ -1,111 +1,65 @@
 from rest_framework import serializers
 from rest_framework import serializers
 from django.contrib.auth import authenticate
-from apps.guests.serializers import GuestSerializer
 from apps.employees.serializers import EmployeeSerializer
+from apps.guests.serializers import GuestSerializer
 from apps.users.models import User
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.guests.models import Guest
-from apps.employees.models import Employee
 from apps.users.models import User
 
-class EmployeeRegisterSerializer(serializers.ModelSerializer):
+class UserRegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True,required=False)
-    # role = serializers.CharField(required=False)
-    # department = serializers.CharField(required=False, allow_blank=True)
-    # position = serializers.CharField(required=False, allow_blank=True)
-    # hire_date = serializers.DateField(required=False)
 
     class Meta:
         model = User
-        fields = ["email", "first_name", "last_name", "avatar","password"]
+        fields = ["email", "first_name", "last_name", "username","avatar","phone", "password"]
 
     def create(self, validated_data):
-        # role= validated_data.pop("role", Employee.EmployeeRoles.EMPLOYEE)
-        # department = validated_data.pop("department", None)
-        # position = validated_data.pop("position", None)
-        # hire_date = validated_data.pop("hire_date", None)
-        password = validated_data.pop("password", None)
-        user = User.objects.create_user(
-            email=validated_data["email"],
-            first_name=validated_data["first_name"],
-            last_name=validated_data["last_name"],
-            password=password,
-            avatar=validated_data["avatar"],
-            user_type=User.UserTypes.EMPLOYEE
+        print(validated_data)
+        user = User.objects.create_user(**validated_data
         )
-        # Employee instance after save from signals.py
-        # employee:Employee = user.employee_profile
-        # employee.role = role
-        # employee.department = department
-        # employee.position = position
-        # employee.hire_date = hire_date
-        # employee.save()
-
         return user
     
 
 class GuestRegisterSerializer(serializers.ModelSerializer):
-    email = serializers.EmailField()
-    first_name = serializers.CharField()
-    last_name = serializers.CharField()
-    password = serializers.CharField(write_only=True)
-
-    phone = serializers.CharField(required=False, allow_blank=True)
-    address = serializers.CharField(required=False, allow_blank=True)
-    dob = serializers.DateField(required=False)
-    loyalty_points = serializers.IntegerField(required=False)
-
     class Meta:
         model = User
-        fields = ["email", "first_name", "last_name", "password","phone","address","dob","loyalty_points"]
+        fields = ["email", "first_name", "last_name", "avatar","phone"]
 
     def create(self, validated_data):
-        guest_data = {
-            'phone': validated_data.pop("phone", None),
-            'address': validated_data.pop("address", None),
-            'dob': validated_data.pop("dob", None),
-            'loyalty_points': validated_data.pop("loyalty_points", 10),
-        }
-
-        # 1️⃣ Create User
         user = User.objects.create_user(
             email=validated_data["email"],
             first_name=validated_data["first_name"],
             last_name=validated_data["last_name"],
             password=validated_data["password"],
-            user_type=User.UserTypes.CUSTOMER
+            user_type=User.UserTypes.GUEST
         )
-
-        # 2️⃣ Create Guest with all additional fields
-        Guest.objects.create(
-            user=user,
-            **guest_data
-        )
-
         return user
     
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["first_name", "last_name","username","avatar","email","full_name"]
+        fields = ["first_name", "last_name","username","phone","avatar","email","full_name","user_type"]
 
 
 
 
 class LoginSerializer(serializers.Serializer):
-    email = serializers.EmailField()
+    username = serializers.CharField()
     password = serializers.CharField(write_only=True)
 
     def validate(self, attrs):
-        email = attrs.get("email")
+        username = attrs.get("username")
         password = attrs.get("password")
-
-        user = authenticate(email=email, password=password)
+        user:User = authenticate(
+            username=username,
+            password=password
+        )
         if not user:
-            raise serializers.ValidationError("Invalid email or password")
+            raise serializers.ValidationError("Invalid phone or password")
 
         if not user.is_active:
             raise serializers.ValidationError("User account is inactive")
@@ -135,20 +89,21 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
             "id",
             "avatar",
             "email",
+            "phone",
             "full_name",
             "first_name",
             "last_name",
             "username",
             "user_type",
             "employee",
-            "guest",
+            "guest"
         ]
 
     def get_employee(self, obj):
         if hasattr(obj, "employee_profile"):
             return EmployeeSerializer(obj.employee_profile).data
         return None
-
+    
     def get_guest(self, obj):
         if hasattr(obj, "guest_profile"):
             return GuestSerializer(obj.guest_profile).data

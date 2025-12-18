@@ -47,7 +47,9 @@ REST_FRAMEWORK = {
         'rest_framework.filters.SearchFilter',
     ]
 }
-
+AUTHENTICATION_BACKENDS = [
+    "apps.users.backends.PhoneOrEmailBackend",
+]
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),

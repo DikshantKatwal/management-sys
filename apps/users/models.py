@@ -46,7 +46,8 @@ class User(BaseModel, AbstractBaseUser, PermissionsMixin):
         ADMIN = "admin", "Admin"
         GUEST = "guest", "Guest"
         EMPLOYEE = "employee", "Employee"
-    email = models.EmailField(_("email address"), unique=True)
+    email = models.EmailField(_("email address"), unique=True, null=True, blank=True)
+    phone = models.CharField(max_length=20,unique=True)
     avatar = models.ImageField(upload_to="users/avatar/", null=True, blank=True)
     username = models.CharField(max_length=255, null=True, blank=True)
     first_name = models.CharField(max_length=255, null=True, blank=True)
@@ -63,7 +64,9 @@ class User(BaseModel, AbstractBaseUser, PermissionsMixin):
     objects = CustomAccountManager()
     last_login_ip = models.GenericIPAddressField(null=True, blank=True)
 
+    # USERNAME_FIELD = "phone"
     USERNAME_FIELD = "email"
+
     REQUIRED_FIELDS = ["first_name", "last_name"]
 
     @property
