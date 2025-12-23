@@ -74,7 +74,6 @@ class GuestRegisterView(viewsets.ModelViewSet):
             if user:
                 serializer = UserRegisterSerializer(user, data=data)
                 serializer.is_valid(raise_exception=True)
-                print(serializer.validated_data)
                 user:User = serializer.save()
             if hasattr(user, "guest_profile"):
                 guest:Guest = user.guest_profile

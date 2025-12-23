@@ -16,3 +16,7 @@ class Guest(BaseModel):
 
     def __str__(self):
         return self.user.full_name
+
+    @property
+    def full_name(self):
+        return self.user.full_name

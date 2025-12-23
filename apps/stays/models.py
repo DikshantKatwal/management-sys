@@ -77,6 +77,8 @@ class StayExtension(BaseModel):
 
 
 # # ---------- Billing (Folio/Ledger) ----------
+from django.db.models import Sum, F
+from decimal import Decimal
 
 class Folio(BaseModel):
     """
@@ -86,6 +88,35 @@ class Folio(BaseModel):
     stay = models.OneToOneField(Stay, on_delete=models.CASCADE, related_name="folio")
     currency = models.CharField(max_length=10, default="NPR")
     is_closed = models.BooleanField(default=False)
+
+    @property
+    def total_charges(self):
+        return self.charges.aggregate(
+            total=Sum(
+                (F("quantity") * F("unit_price")) +
+                F("tax_amount") -
+                F("discount_amount")
+            )
+        )["total"] or Decimal("0.00")
+    
+    @property
+    def total_payments(self):
+        return self.payments.aggregate(
+            total=Sum("amount")
+        )["total"] or Decimal("0.00")
+
+    @property
+    def total_adjustments(self):
+        return self.adjustments.aggregate(
+            total=Sum("amount")
+        )["total"] or Decimal("0.00")
+
+    @property
+    def balance(self):
+        return self.total_charges + self.total_adjustments - self.total_payments
+
+    def is_balanced(self):
+        return self.balance == Decimal("0.00")
 
 
 class Charge(BaseModel):
@@ -106,8 +137,8 @@ class Charge(BaseModel):
     unit_price = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
     tax_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
     discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
-    occurred_at = models.DateTimeField(default=timezone.now)  # when service consumed
-    posted_at = models.DateTimeField(auto_now_add=True)      # when added to folio
+    occurred_at = models.DateTimeField(default=timezone.now)
+    posted_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True)
 
     @property
@@ -130,10 +161,10 @@ class Payment(BaseModel):
     folio = models.ForeignKey(Folio, on_delete=models.CASCADE, related_name="payments")
     method = models.CharField(max_length=20, choices=Method.choices)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
-    reference = models.CharField(max_length=120, blank=True)  # txn id / receipt no
+    reference = models.CharField(max_length=120, blank=True)
     received_at = models.DateTimeField(default=timezone.now)
 
-    is_advance = models.BooleanField(default=False)  # advance payment before checkout
+    is_advance = models.BooleanField(default=False)
     created_by = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True)
 
 

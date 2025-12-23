@@ -2,8 +2,10 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction
+from django.db.models import F, Sum
 from decimal import Decimal
-
+from django.utils import timezone
+from rest_framework.exceptions import ValidationError
 from .models import (
     Reservation, Stay, StayExtension,
     Folio, Charge, Payment, FolioAdjustment,
@@ -111,12 +113,26 @@ class FolioViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def close(self, request, pk=None):
         folio = self.get_object()
+
         if folio.is_closed:
-            return Response({"detail": "Folio already closed"})
+            return Response(
+                {"detail": "Folio already closed"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not folio.is_balanced():
+            return Response(
+                {
+                    "detail": "Folio cannot be closed because balance is not zero",
+                    "balance": folio.balance
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         folio.is_closed = True
         folio.save(update_fields=["is_closed"])
-        return Response({"status": "folio closed"})
 
+        return Response({"status": "folio closed"})
 
 class ChargeViewSet(viewsets.ModelViewSet):
     queryset = Charge.objects.select_related("folio", "created_by")

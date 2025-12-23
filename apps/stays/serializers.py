@@ -11,18 +11,24 @@ from django.db import models
 
 # ---------- Reservation ----------
 
+exclude_fields = ["restored_at", "deleted_at", "transaction_id","updated_at"]
 class ReservationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Reservation
-        fields = "__all__"
+        # exclude = exclude_fields
+        exclude = exclude_fields
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation["guest_name"] = instance.guest.full_name
+        return representation
 
 # ---------- Stay ----------
 
 class StayExtensionSerializer(serializers.ModelSerializer):
     class Meta:
         model = StayExtension
-        fields = "__all__"
+        exclude = exclude_fields
 
 
 class StaySerializer(serializers.ModelSerializer):
@@ -30,7 +36,7 @@ class StaySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Stay
-        fields = "__all__"
+        exclude = exclude_fields
 
 
 # ---------- Billing ----------
@@ -45,19 +51,26 @@ class ChargeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Charge
-        fields = "__all__"
+        exclude = exclude_fields
 
 
 class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
-        fields = "__all__"
+        exclude = exclude_fields
+
+
+    def validate(self, attrs):
+        user = self.context["request"].user
+        if hasattr(user, "employee_profile"):
+            attrs["created_by"] = user.employee_profile
+        return super().validate(attrs)
 
 
 class FolioAdjustmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = FolioAdjustment
-        fields = "__all__"
+        exclude = exclude_fields
 
 
 class FolioSerializer(serializers.ModelSerializer):
@@ -72,7 +85,7 @@ class FolioSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Folio
-        fields = "__all__"
+        exclude = exclude_fields
 
     def get_total_charges(self, obj):
         return obj.charges.aggregate(
@@ -106,7 +119,7 @@ class FolioSerializer(serializers.ModelSerializer):
 class MenuItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = MenuItem
-        fields = "__all__"
+        exclude = exclude_fields
 
 
 class FoodOrderItemSerializer(serializers.ModelSerializer):
@@ -114,7 +127,7 @@ class FoodOrderItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FoodOrderItem
-        fields = "__all__"
+        exclude = exclude_fields
 
     def get_line_total(self, obj):
         return obj.quantity * obj.unit_price
@@ -128,7 +141,7 @@ class FoodOrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FoodOrder
-        fields = "__all__"
+        exclude = exclude_fields
 
     def get_order_total(self, obj):
         return sum(

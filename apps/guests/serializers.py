@@ -9,3 +9,8 @@ class GuestSerializer(serializers.ModelSerializer):
         model = Guest
         exclude=["restored_at", "deleted_at", "transaction_id","id"
                  ]
+        
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation["guest_id"] = instance.id
+        return representation

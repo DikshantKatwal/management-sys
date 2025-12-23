@@ -82,11 +82,13 @@ class LoginSerializer(serializers.Serializer):
 class UnifiedUserSerializer(serializers.ModelSerializer):
     employee = serializers.SerializerMethodField()
     guest = serializers.SerializerMethodField()
+    guest_id = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
             "id",
+            "guest_id",
             "avatar",
             "email",
             "phone",
@@ -96,7 +98,7 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
             "username",
             "user_type",
             "employee",
-            "guest"
+            "guest",
         ]
 
     def get_employee(self, obj):
@@ -107,4 +109,9 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
     def get_guest(self, obj):
         if hasattr(obj, "guest_profile"):
             return GuestSerializer(obj.guest_profile).data
+        return None
+    
+    def get_guest_id(self, obj):
+        if hasattr(obj, "guest_profile"):
+            return obj.guest_profile.id
         return None
