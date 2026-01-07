@@ -1,4 +1,5 @@
 
+from django.forms import ValidationError
 from apps.common.models import BaseModel
 from django.db import models,transaction
 
@@ -236,3 +237,8 @@ class FoodOrderItem(BaseModel):
 
     def line_total(self):
         return self.quantity * self.unit_price
+
+    def save(self, *args, **kwargs):
+        if self.pk and self.order.status == FoodOrder.Status.DELIVERED:
+            raise ValidationError("Cannot modify delivered order")
+        super().save(*args, **kwargs)

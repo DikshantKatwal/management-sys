@@ -14,3 +14,11 @@ class GuestSerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
         representation["guest_id"] = instance.id
         return representation
+
+
+class GuestUserSerializer(serializers.ModelSerializer):
+    from apps.users.serializers import UserSerializer
+    user = UserSerializer(read_only=True)
+    class Meta:
+        model = Guest
+        exclude=["restored_at", "deleted_at", "transaction_id"]

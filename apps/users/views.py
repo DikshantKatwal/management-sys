@@ -9,14 +9,13 @@ from apps.employees.models import Employee
 from apps.employees.serializers import EmployeeSerializer
 from apps.users.models import User
 from .serializers import (
-    GuestRegisterSerializer,
     UserRegisterSerializer,
     LoginSerializer,
     UnifiedUserSerializer,
     UserSerializer,
 )
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
+from rest_framework_simplejwt.exceptions import TokenError
 from django.db import transaction
 from django.db.models import Q
 from rest_framework.exceptions import ValidationError
@@ -211,7 +210,7 @@ class LoginView(APIView):
             secure=False,
             samesite="Lax",
             path="/",
-            max_age=3600,         # 👈 critical
+            max_age=60 * 60 * 24 * 30,
         )
 
         response.set_cookie(
@@ -221,7 +220,7 @@ class LoginView(APIView):
             secure=False,
             samesite="Lax",
             path="/",
-            max_age=86400,
+            max_age=60 * 60 * 24 * 30,
         )
 
         return response

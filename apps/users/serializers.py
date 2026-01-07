@@ -2,11 +2,9 @@ from rest_framework import serializers
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from apps.employees.serializers import EmployeeSerializer
-from apps.guests.serializers import GuestSerializer
 from apps.users.models import User
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.guests.models import Guest
 from apps.users.models import User
 
 class UserRegisterSerializer(serializers.ModelSerializer):
@@ -107,6 +105,7 @@ class UnifiedUserSerializer(serializers.ModelSerializer):
         return None
     
     def get_guest(self, obj):
+        from apps.guests.serializers import GuestSerializer
         if hasattr(obj, "guest_profile"):
             return GuestSerializer(obj.guest_profile).data
         return None

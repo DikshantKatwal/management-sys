@@ -17,3 +17,7 @@ class RoomViewSet(viewsets.ModelViewSet):
     serializer_class = RoomSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
     search_fields = ['number','room_type__name',"status"]
+
+    filterset_fields = {
+        "room_type": ["exact"],
+    }

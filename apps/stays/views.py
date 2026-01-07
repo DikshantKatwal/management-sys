@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from django.db import transaction
 from django.db.models import F, Sum
 from decimal import Decimal
+from rest_framework.exceptions import PermissionDenied
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 from .models import (
@@ -156,10 +157,16 @@ class MenuItemViewSet(viewsets.ModelViewSet):
     serializer_class = MenuItemSerializer
 
 
+
 class FoodOrderViewSet(viewsets.ModelViewSet):
-    queryset = FoodOrder.objects.select_related("stay")
+    queryset = FoodOrder.objects.select_related("stay").prefetch_related("items")
     serializer_class = FoodOrderSerializer
 
+    def get_serializer_class(self):
+        if self.action == "create":
+            return FoodOrderCreateSerializer
+        return FoodOrderSerializer
+    
     @action(detail=True, methods=["post"])
     def post_to_folio(self, request, pk=None):
         order = self.get_object()
@@ -189,3 +196,9 @@ class FoodOrderViewSet(viewsets.ModelViewSet):
 class FoodOrderItemViewSet(viewsets.ModelViewSet):
     queryset = FoodOrderItem.objects.select_related("order", "menu_item")
     serializer_class = FoodOrderItemSerializer
+
+    def perform_create(self, serializer):
+        raise PermissionDenied("Items must be created via FoodOrder")
+
+    def perform_update(self, serializer):
+        raise PermissionDenied("Items cannot be updated directly")

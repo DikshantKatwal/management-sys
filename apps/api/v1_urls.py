@@ -6,5 +6,6 @@ urlpatterns = [
     path("stay/", include("apps.stays.urls")),
     path("guest/", include("apps.guests.urls")),
     path("employee/", include("apps.employees.urls")),
+    path("utilities/", include("apps.utilities.urls")),
 
 ]

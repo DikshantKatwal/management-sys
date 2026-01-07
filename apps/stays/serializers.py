@@ -2,26 +2,67 @@ from rest_framework import serializers
 from decimal import Decimal
 from django.db.models import Sum
 
+from apps.guests.models import Guest
+from apps.guests.serializers import GuestUserSerializer
+from apps.rooms.models import Room, RoomType
+from apps.rooms.serializers import RoomSerializer, RoomTypeSerializer
+
 from .models import (
     Reservation, Stay, StayExtension,
     Folio, Charge, Payment, FolioAdjustment,
     MenuItem, FoodOrder, FoodOrderItem
 )
 from django.db import models
+from django.db import transaction
+
 
 # ---------- Reservation ----------
 
 exclude_fields = ["restored_at", "deleted_at", "transaction_id","updated_at"]
 class ReservationSerializer(serializers.ModelSerializer):
+    guest = GuestUserSerializer(read_only=True)
+
+    guest_id = serializers.PrimaryKeyRelatedField(
+        queryset=Guest.objects.all(),
+        source="guest",
+        write_only=True
+    )
+
+    room = RoomSerializer(read_only=True)
+
+    room_id = serializers.PrimaryKeyRelatedField(
+        queryset=Room.objects.all(),
+        source="room",
+        write_only=True,
+        required=False,
+        allow_null=True,
+    )
+
+    room_type = RoomTypeSerializer(read_only=True)
+
+    room_type_id = serializers.PrimaryKeyRelatedField(
+        queryset=RoomType.objects.all(),
+        source="room_type",
+        write_only=True,
+        required=False,
+        allow_null=True,
+
+    )
+    def validate(self, attrs):
+        check_in = attrs.get("check_in_date")
+        check_out = attrs.get("check_out_date")
+        if check_in and check_out:
+            if check_in >= check_out:
+                raise serializers.ValidationError({
+                    "check_out_date": "Check-out date must be after check-in date."
+                })
+
+        return super().validate(attrs)
+    
     class Meta:
         model = Reservation
-        # exclude = exclude_fields
         exclude = exclude_fields
 
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        representation["guest_name"] = instance.guest.full_name
-        return representation
 
 # ---------- Stay ----------
 
@@ -32,6 +73,22 @@ class StayExtensionSerializer(serializers.ModelSerializer):
 
 
 class StaySerializer(serializers.ModelSerializer):
+    reservation = ReservationSerializer(read_only=True)
+
+    reservation_id = serializers.PrimaryKeyRelatedField(
+        queryset=Reservation.objects.all(),
+        source="reservation",
+        write_only=True
+    )
+
+    room = RoomSerializer(read_only=True)
+
+    room_id = serializers.PrimaryKeyRelatedField(
+        queryset=Room.objects.all(),
+        source="room",
+        write_only=True
+    )
+
     extensions = StayExtensionSerializer(many=True, read_only=True)
 
     class Meta:
@@ -148,3 +205,39 @@ class FoodOrderSerializer(serializers.ModelSerializer):
             (item.quantity * item.unit_price)
             for item in obj.items.all()
         )
+
+
+class FoodOrderItemCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FoodOrderItem
+        fields = ["menu_item", "quantity"]
+
+
+class FoodOrderCreateSerializer(serializers.ModelSerializer):
+    items = FoodOrderItemCreateSerializer(many=True)
+
+    class Meta:
+        model = FoodOrder
+        fields = ["stay", "notes", "items"]
+
+    def validate_items(self, items):
+        if not items:
+            raise serializers.ValidationError("Order must contain at least one item")
+        return items
+
+    def create(self, validated_data):
+        items_data = validated_data.pop("items")
+
+        with transaction.atomic():
+            order = FoodOrder.objects.create(**validated_data)
+
+            for item in items_data:
+                menu_item = item["menu_item"]
+                FoodOrderItem.objects.create(
+                    order=order,
+                    menu_item=menu_item,
+                    quantity=item.get("quantity", Decimal("1.00")),
+                    unit_price=menu_item.price,  # snapshot price
+                )
+
+        return order
